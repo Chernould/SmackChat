@@ -6,6 +6,9 @@
 	</styles>
 	<scripts>
 		<include src="s2r://panorama/scripts/hud_lookup.vjs_c" />
+		<include src="s2r://panorama/scripts/smack_heroes.vjs_c" />
+		<include src="s2r://panorama/scripts/heroes/hero_chessmaster.vjs_c" />
+		<include src="s2r://panorama/scripts/heroes/hero_punkgoat.vjs_c" />
 		<include src="s2r://panorama/scripts/smack_chat.vjs_c" />
 	</scripts>
 	<snippets>
