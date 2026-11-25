@@ -40,7 +40,7 @@
         // never queues up behind the send -- extras are dropped outright.
         COOLDOWN_MS: 2000,
 
-        DEBUG: false,
+        DEBUG: true,
     };
 
     const IDS = {
@@ -271,9 +271,106 @@
         return id ? registry.get(id) : null;
     }
 
-    // Internal name of the hero on this kill panel. Not implemented yet -- the panel has a
-    // CitadelHeroBadge#heroBadge that may expose it; needs in-game inspection first.
+    // ---------------------------------------------------------------- victim detection
+    //
+    // Each kill panel holds CitadelHeroBadge#heroBadge, whose stock layout (hero_badge.xml) builds
+    // a CitadelHeroImage#HeroImage child. CitadelHeroImage takes a numeric `heroid` attribute
+    // (citadel_hud_playerintents_player.xml uses heroid="1" for Infernus), so that number is our
+    // best lead. None of this is confirmed in-game yet: with CONFIG.DEBUG on, every kill logs what
+    // each probe returned so we can see which one (if any) the game actually exposes.
+
+    function findIn(panel, id) {
+        if (!isValid(panel) || typeof panel.FindChildTraverse !== 'function') return null;
+        try {
+            const found = panel.FindChildTraverse(id);
+            return isValid(found) ? found : null;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function probe(fn) {
+        try {
+            return fn();
+        } catch (e) {
+            return undefined;
+        }
+    }
+
+    // Every way we know of to read a numeric hero id off a panel, by name, for debug logging.
+    function heroNumberProbes(panel) {
+        return {
+            'prop heroid': probe(() => panel.heroid),
+            'prop heroID': probe(() => panel.heroID),
+            'prop hero_id': probe(() => panel.hero_id),
+            'attrInt heroid': probe(() => panel.GetAttributeInt('heroid', -1)),
+            'attrStr heroid': probe(() => panel.GetAttributeString('heroid', '')),
+            'attrInt hero_id': probe(() => panel.GetAttributeInt('hero_id', -1)),
+            'dvarInt hero_id': probe(() => panel.GetDialogVariableInt('hero_id')),
+        };
+    }
+
+    function readHeroNumber(panel) {
+        if (!isValid(panel)) return -1;
+        const values = heroNumberProbes(panel);
+        for (const key in values) {
+            const n = parseInt(values[key], 10);
+            if (n > 0) return n;
+        }
+        return -1;
+    }
+
+    function describePanel(label, panel) {
+        if (!isValid(panel)) return label + ': <missing>';
+        const parts = [label + ': type=' + probe(() => panel.paneltype) + ' id=' + probe(() => panel.id)];
+        const values = heroNumberProbes(panel);
+        for (const key in values) {
+            if (values[key] !== undefined) parts.push(key + '=' + JSON.stringify(values[key]));
+        }
+        const registry = $.SmackChatHeroes;
+        const classes = registry ? registry.knownIds().filter(key => hasClass(panel, key)) : [];
+        parts.push('heroClasses=[' + classes.join(',') + ']');
+        const src = probe(() => panel.GetAttributeString('src', ''));
+        if (src) parts.push('src=' + src);
+        const bg = probe(() => panel.style.backgroundImage);
+        if (bg) parts.push('bg=' + bg);
+        return parts.join(' ');
+    }
+
+    // Internal name (e.g. 'hero_atlas') of the hero on this kill panel, or null if unknown.
     function getVictimHero(killPanel) {
+        const registry = $.SmackChatHeroes;
+        if (!registry) return null;
+
+        const badge = findIn(killPanel, 'heroBadge');
+        const image = findIn(badge, 'HeroImage');
+        const candidates = [image, badge, killPanel];
+
+        if (CONFIG.DEBUG) {
+            log('victim probe ' + describePanel('panel', killPanel));
+            log('victim probe ' + describePanel('badge', badge));
+            log('victim probe ' + describePanel('image', image));
+        }
+
+        // 1. Numeric hero id -> internal name.
+        for (const panel of candidates) {
+            const id = registry.idFromNumber(readHeroNumber(panel));
+            if (id) {
+                log('victim is ' + id + ' (hero id)');
+                return id;
+            }
+        }
+
+        // 2. Internal name as a CSS class (the engine does this on some other hero panels).
+        for (const panel of candidates) {
+            const id = registry.knownIds().find(key => hasClass(panel, key));
+            if (id) {
+                log('victim is ' + id + ' (class)');
+                return id;
+            }
+        }
+
+        log('victim hero unknown, using generic lines');
         return null;
     }
 
