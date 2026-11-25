@@ -179,8 +179,8 @@
         chatTargetLabel: 'ChatTargetLabel',
     };
 
-    const FIRED_FLAG = '__wellPlayedFired';
-    const STORE_KEY = 'WellPlayedOnKill';
+    const FIRED_FLAG = '__smackChatFired';
+    const STORE_KEY = 'SmackChat';
 
     const CTX = $.GetContextPanel();
 
@@ -201,7 +201,7 @@
     function log(message) {
         if (!CONFIG.DEBUG) return;
         try {
-            $.Msg('[WellPlayed] ' + message);
+            $.Msg('[SmackChat] ' + message);
         } catch (e) {}
     }
 
@@ -249,8 +249,8 @@
             if (typeof GameUI !== 'undefined' && GameUI.CustomUIConfig) return GameUI.CustomUIConfig();
         } catch (e) {}
         try {
-            globalThis.__WellPlayedFallbackStore = globalThis.__WellPlayedFallbackStore || {};
-            return globalThis.__WellPlayedFallbackStore;
+            globalThis.__SmackChatFallbackStore = globalThis.__SmackChatFallbackStore || {};
+            return globalThis.__SmackChatFallbackStore;
         } catch (e) {
             return {};
         }
