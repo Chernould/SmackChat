@@ -6,7 +6,7 @@
 	</styles>
 	<scripts>
 		<include src="s2r://panorama/scripts/hud_lookup.vjs_c" />
-		<include src="s2r://panorama/scripts/well_played_on_kill.vjs_c" />
+		<include src="s2r://panorama/scripts/smack_chat.vjs_c" />
 	</scripts>
 	<snippets>
 		<snippet name="ImpactDamage">
