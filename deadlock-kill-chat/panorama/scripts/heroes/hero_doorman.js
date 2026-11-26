@@ -5,12 +5,33 @@ $.SmackChatHeroes.register({
     name: 'The Doorman',
     lines: [
         "Your efforts while commendable, seem unappreciated by your teammates",
-        "I'm surpised to see my enemies be such munificent tippers",
-        "Fear not, your respawn timer will slip away before you notice",
+        "I'm surprised to see my enemies be such munificent tippers",
+        "Fear not, your respawn timer will slip away before your mortal mind notices",
         "The Baroness has a zero tolerance policy for uncouth behavoir",
         "I eagarly await you next charitable donation of souls to the Baroness",
         "I implore you, one more donation and I can finsh the renovations on The Barroness",
+        "Your creativity, while ample has been put to use quite poorly",
+        "Do not fear the void, after all your destined to become a frequent visitor",
+        "Fools blinded by ritual you lack the vision to see the Parton in front of you",
+        "These are the mortals representing you. Dark times indeed",
+        "For every genius there is always a fool to maintain the balance",
+        "Mankind always blinded by their futile power they overlook the help",
+        "The Curiosity shop won’t help, The Baroness can accommodate any and all luggage",
+        "Excuse my rugged handling, I forgot how fragile you plebeians are",
+        "The deepest waters most commonly drown confident swimmers",
+        "Butchering mortals gets stale but vexing them retains novelty throughout eternity",
+        "Rest weary soul, there is nothing left for you to contribute",
+        "How foolish you are keep fighting, ignoring the fear that keeps you alive",
+        "I’m curious, will you learn from your mistakes or continue in ignorance",
+        "Never ceases to amaze me how prey delude themselves with bravery",
+        "Your evasion is commendable, unfortunate that you also evade wisdom",
+        "The clock is ticking on your brief lives just surrender",
+        "Apologies for the mess, I’ll make sure housekeeping is sent on the double",
     ],
+    // Percent chance (0-100) of using a victim's vsHero lines instead of the generic ones,
+    // when that victim has some. `default` covers every victim; add e.g. `hero_lash: 70,`
+    // to override one. Kept as-is when the sheet is re-imported.
+    vsChance: { default: 100 },
     // Lines used instead of `lines` when the victim is that hero.
     // Leave an array empty to fall back to the generic `lines` above.
     vsHero: {

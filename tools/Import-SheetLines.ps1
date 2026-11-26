@@ -10,7 +10,8 @@
 
     For each tab the matching scripts/heroes/hero_*.js file is rewritten from scratch:
     `lines` from column A, `vsHero` from the other columns (every hero is listed; heroes without
-    a column or with an empty column get []). The file's id and display name are kept.
+    a column or with an empty column get []). The file's id, display name and vsChance weights
+    are kept.
 
     Safety:
       - A tab with no generic lines is skipped, so a blank tab never wipes a hero's lines.
@@ -83,7 +84,10 @@ function Get-HeroFiles {
         if (-not $id -or -not $name) { Write-Warning "Skipping $($file.Name): no id/name found"; continue }
         $lineCount = ([regex]::Match($text, '(?s)lines:\s*\[(.*?)\n\s*\],').Groups[1].Value -split "`n" |
             Where-Object { $_ -match '^\s*"' }).Count
-        $list += [pscustomobject]@{ Id = $id; Name = $name; Key = (Get-NameKey $name); Path = $file.FullName; LineCount = $lineCount; Text = $text }
+        # vsChance (hero-vs-hero weights) is not in the sheet, so keep whatever the file has.
+        $vsChance = [regex]::Match($text, '(?s)\n\s*vsChance:\s*(\{.*?\}),').Groups[1].Value
+        if (-not $vsChance) { $vsChance = '{ default: 100 }' }
+        $list += [pscustomobject]@{ Id = $id; Name = $name; Key = (Get-NameKey $name); Path = $file.FullName; LineCount = $lineCount; VsChance = $vsChance; Text = $text }
     }
     return $list
 }
@@ -206,6 +210,10 @@ function New-HeroFileText($hero, [string[]]$lines, [hashtable]$vsLines, $allHero
     [void]$sb.AppendLine('    lines: [')
     foreach ($l in $lines) { [void]$sb.AppendLine('        ' + (ConvertTo-JsString $l) + ',') }
     [void]$sb.AppendLine('    ],')
+    [void]$sb.AppendLine("    // Percent chance (0-100) of using a victim's vsHero lines instead of the generic ones,")
+    [void]$sb.AppendLine('    // when that victim has some. `default` covers every victim; add e.g. `hero_lash: 70,`')
+    [void]$sb.AppendLine('    // to override one. Kept as-is when the sheet is re-imported.')
+    [void]$sb.AppendLine("    vsChance: $($hero.VsChance),")
     [void]$sb.AppendLine('    // Lines used instead of `lines` when the victim is that hero.')
     [void]$sb.AppendLine('    // Leave an array empty to fall back to the generic `lines` above.')
     [void]$sb.AppendLine('    vsHero: {')

@@ -1,0 +1,123 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>SMACK_BOOT</title>
+<!--
+  SmackChat storage bridge.
+
+  Deadlock mods have no storage of their own, but they can open a web page in a hidden
+  CitadelHTMLPanel (the game's built-in browser), and that browser keeps localStorage between
+  launches. This page is that storage. It is served over HTTPS (GitHub Pages) because the game's
+  browser only opens HTTPS pages.
+
+  Protocol (see deadlock-kill-chat/panorama/scripts/smack_storage.js):
+    - The mod loads this page, then sends each request by changing only the URL fragment:
+        #<encodeURIComponent(JSON.stringify({ id, op, key, value, token }))>
+      op is "ping", "save", "load" or "remove". A fragment present on first load is ignored.
+    - The page answers by setting document.title, which the mod reads via the HTMLTitle event:
+        SMACK_READY:<token>              page is up; <token> must accompany every request
+        SMACK_RES:<JSON { id, ok, value?, error? }>
+        SMACK_ERROR:<message>            storage unusable
+  Security: any site opened in the same browser profile could navigate here with its own
+  fragment, but only this page's title (which other sites cannot read) reveals the per-install
+  token, so requests without it are refused. Keys are confined to the "smackchat." prefix.
+-->
+</head>
+<body>
+<script>
+(function () {
+    'use strict';
+
+    var PROTOCOL = 1;
+    var KEY_PREFIX = 'smackchat.';
+    var TOKEN_KEY = '__smackchat_bridge_token__';
+    var MAX_VALUE = 20000;
+
+    // Only ever run as the top-level page, never inside someone else's frame.
+    if (window.top !== window.self) {
+        try { window.top.location = window.self.location; } catch (_) {}
+        return;
+    }
+
+    var token = '';
+    try {
+        localStorage.setItem('__smackchat_probe__', '1');
+        localStorage.removeItem('__smackchat_probe__');
+        token = localStorage.getItem(TOKEN_KEY) || '';
+        if (!/^[0-9a-f]{32}$/.test(token)) {
+            var bytes = new Uint8Array(16);
+            crypto.getRandomValues(bytes);
+            token = '';
+            for (var i = 0; i < bytes.length; i++) token += ('0' + bytes[i].toString(16)).slice(-2);
+            localStorage.setItem(TOKEN_KEY, token);
+        }
+    } catch (e) {
+        document.title = 'SMACK_ERROR:' + (e && e.message ? e.message : e);
+        return;
+    }
+
+    function reply(id, ok, value, error) {
+        var res = { id: id, ok: !!ok };
+        if (value !== undefined) res.value = value;
+        if (error) res.error = String(error);
+        document.title = 'SMACK_RES:' + JSON.stringify(res);
+    }
+
+    function handle(fragment) {
+        if (!fragment) return;
+        var req;
+        try {
+            req = JSON.parse(decodeURIComponent(fragment));
+        } catch (e) {
+            return; // not ours
+        }
+        if (!req || typeof req.id !== 'string' || !/^smack_\d+_\d+$/.test(req.id)) return;
+        if (req.token !== token) {
+            reply(req.id, false, undefined, 'Unauthorized');
+            return;
+        }
+        try {
+            if (req.op === 'ping') {
+                reply(req.id, true, PROTOCOL);
+                return;
+            }
+            var key = String(req.key || '');
+            if (!/^[A-Za-z0-9_.\-]{1,64}$/.test(key)) {
+                reply(req.id, false, undefined, 'Bad key');
+                return;
+            }
+            var fullKey = KEY_PREFIX + key;
+            if (req.op === 'save') {
+                var value = String(req.value);
+                if (value.length > MAX_VALUE) {
+                    reply(req.id, false, undefined, 'Value too large');
+                    return;
+                }
+                localStorage.setItem(fullKey, value);
+                reply(req.id, true);
+            } else if (req.op === 'load') {
+                var stored = localStorage.getItem(fullKey);
+                reply(req.id, true, stored === null ? null : stored);
+            } else if (req.op === 'remove') {
+                localStorage.removeItem(fullKey);
+                reply(req.id, true);
+            } else {
+                reply(req.id, false, undefined, 'Unknown op');
+            }
+        } catch (e) {
+            reply(req.id, false, undefined, e && e.message ? e.message : e);
+        }
+    }
+
+    // Requests only arrive as fragment changes after load; a fragment already present when the
+    // page loads (e.g. a link from elsewhere) is ignored.
+    window.addEventListener('hashchange', function () {
+        handle(location.hash.slice(1));
+    });
+
+    document.title = 'SMACK_READY:' + token;
+})();
+</script>
+</body>
+</html>

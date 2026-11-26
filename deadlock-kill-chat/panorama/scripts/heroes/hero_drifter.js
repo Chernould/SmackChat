@@ -7,6 +7,10 @@ $.SmackChatHeroes.register({
         "I was behind you the whole time.",
         "Nobody hears the Drifter coming.",
     ],
+    // Percent chance (0-100) of using a victim's vsHero lines instead of the generic ones,
+    // when that victim has some. `default` covers every victim; add e.g. `hero_lash: 70,`
+    // to override one. Kept as-is when the sheet is re-imported.
+    vsChance: { default: 100 },
     // Lines used instead of `lines` when the victim is that hero.
     // Leave an array empty to fall back to the generic `lines` above.
     vsHero: {

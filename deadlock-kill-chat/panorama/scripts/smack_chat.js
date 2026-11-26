@@ -35,13 +35,18 @@
         // whatever channel happens to be open (useful to isolate a broken OPEN_COMMANDS list).
         REQUIRE_ALL_TARGET: true,
 
-        // Kills within this window of the last accepted one send nothing. A double kill is one
-        // chat message, not two. Measured from when the kill is detected, so a burst of kills
-        // never queues up behind the send -- extras are dropped outright.
-        COOLDOWN_MS: 2000,
-
-        DEBUG: true,
+        // User-facing settings (on/off, debug) are in smack_config.js
+        // and can be changed per match from the Esc menu panel -- read them with setting().
     };
+
+    // A user setting: this match's panel value, else smack_config.js, else `fallback`.
+    function setting(key, fallback) {
+        try {
+            if ($.SmackChatSettings) return $.SmackChatSettings.get(key);
+            if ($.SmackChatConfig && key in $.SmackChatConfig) return $.SmackChatConfig[key];
+        } catch (e) {}
+        return fallback;
+    }
 
     const IDS = {
         info: 'damageImpactInfo',
@@ -61,7 +66,6 @@
         primed: false,
         sending: false,
         message: '',
-        lastAcceptedMs: 0,
         attempt: 0,
         readyStreak: 0,
         cmdIndex: 0,
@@ -69,7 +73,7 @@
     };
 
     function log(message) {
-        if (!CONFIG.DEBUG) return;
+        if (!setting('debug', true)) return;
         try {
             $.Msg('[SmackChat] ' + message);
         } catch (e) {}
@@ -264,11 +268,48 @@
     // Hero lines are registered by scripts/heroes/*.js through smack_heroes.js.
     function getLocalHero() {
         const registry = $.SmackChatHeroes;
-        if (!registry) return null;
-        // The local shop panel carries the current hero's internal name as a class.
-        const shop = getRoot().FindChildTraverse('CitadelHudHeroShop');
-        const id = registry.ids().find(key => hasClass(shop, key));
-        return id ? registry.get(id) : null;
+        return registry ? registry.local() : null;
+    }
+
+    // ---------------------------------------------------------------- spectating
+    //
+    // The top bar (citadel_hud_top_bar.xml) has one CitadelHudTopBarPlayer per player under
+    // TeamFriendly/TeamEnemy > PlayersContainer. Stock CSS (citadel_hud_top_bar.css) shows the
+    // engine tags your own portrait `LocalPlayer`, the hero the camera follows `SpectatorTarget`,
+    // and dead heroes `Dead`.
+
+    function getTopBarPlayers() {
+        const topBar = findChild(getRoot(), 'TopBar');
+        const players = [];
+        for (const teamId of ['TeamFriendly', 'TeamEnemy']) {
+            const container = findIn(findIn(topBar, teamId), 'PlayersContainer');
+            if (!container) continue;
+            const kids = probe(() => container.Children()) || [];
+            for (const kid of kids) if (isValid(kid)) players.push(kid);
+        }
+        return players;
+    }
+
+    // { players, spectatingOther, localDead } for the current moment.
+    function getSpectateState() {
+        const players = getTopBarPlayers();
+        let spectatingOther = false;
+        let localDead = false;
+        for (const p of players) {
+            const isLocal = hasClass(p, 'LocalPlayer');
+            if (hasClass(p, 'SpectatorTarget') && !isLocal) spectatingOther = true;
+            if (isLocal && hasClass(p, 'Dead')) localDead = true;
+        }
+        return { players: players.length, spectatingOther, localDead };
+    }
+
+    // True when the kill on screen should not count for our hero: we are watching someone else,
+    // or our hero is dead (kills that land after death, e.g. from damage over time, are skipped
+    // too -- by design).
+    function isSomeoneElsesKill() {
+        const s = getSpectateState();
+        log('spectate state: topBarPlayers=' + s.players + ' spectatingOther=' + s.spectatingOther + ' localDead=' + s.localDead);
+        return s.spectatingOther || s.localDead;
     }
 
     // ---------------------------------------------------------------- victim detection
@@ -276,7 +317,7 @@
     // Each kill panel holds CitadelHeroBadge#heroBadge, whose stock layout (hero_badge.xml) builds
     // a CitadelHeroImage#HeroImage child. CitadelHeroImage takes a numeric `heroid` attribute
     // (citadel_hud_playerintents_player.xml uses heroid="1" for Infernus), so that number is our
-    // best lead. None of this is confirmed in-game yet: with CONFIG.DEBUG on, every kill logs what
+    // best lead. None of this is confirmed in-game yet: with debug on, every kill logs what
     // each probe returned so we can see which one (if any) the game actually exposes.
 
     function findIn(panel, id) {
@@ -297,33 +338,10 @@
         }
     }
 
-    // Every way we know of to read a numeric hero id off a panel, by name, for debug logging.
-    function heroNumberProbes(panel) {
-        return {
-            'prop heroid': probe(() => panel.heroid),
-            'prop heroID': probe(() => panel.heroID),
-            'prop hero_id': probe(() => panel.hero_id),
-            'attrInt heroid': probe(() => panel.GetAttributeInt('heroid', -1)),
-            'attrStr heroid': probe(() => panel.GetAttributeString('heroid', '')),
-            'attrInt hero_id': probe(() => panel.GetAttributeInt('hero_id', -1)),
-            'dvarInt hero_id': probe(() => panel.GetDialogVariableInt('hero_id')),
-        };
-    }
-
-    function readHeroNumber(panel) {
-        if (!isValid(panel)) return -1;
-        const values = heroNumberProbes(panel);
-        for (const key in values) {
-            const n = parseInt(values[key], 10);
-            if (n > 0) return n;
-        }
-        return -1;
-    }
-
     function describePanel(label, panel) {
         if (!isValid(panel)) return label + ': <missing>';
         const parts = [label + ': type=' + probe(() => panel.paneltype) + ' id=' + probe(() => panel.id)];
-        const values = heroNumberProbes(panel);
+        const values = $.SmackChatHeroes.heroNumberProbes(panel);
         for (const key in values) {
             if (values[key] !== undefined) parts.push(key + '=' + JSON.stringify(values[key]));
         }
@@ -346,28 +364,17 @@
         const image = findIn(badge, 'HeroImage');
         const candidates = [image, badge, killPanel];
 
-        if (CONFIG.DEBUG) {
+        if (setting('debug', true)) {
             log('victim probe ' + describePanel('panel', killPanel));
             log('victim probe ' + describePanel('badge', badge));
             log('victim probe ' + describePanel('image', image));
         }
 
-        // 1. Numeric hero id -> internal name.
-        for (const panel of candidates) {
-            const id = registry.idFromNumber(readHeroNumber(panel));
-            if (id) {
-                log('victim is ' + id + ' (hero id)');
-                return id;
-            }
-        }
-
-        // 2. Internal name as a CSS class (the engine does this on some other hero panels).
-        for (const panel of candidates) {
-            const id = registry.knownIds().find(key => hasClass(panel, key));
-            if (id) {
-                log('victim is ' + id + ' (class)');
-                return id;
-            }
+        // Numeric hero id first, then an internal name used as a CSS class.
+        const found = registry.identify(candidates);
+        if (found) {
+            log('victim is ' + found.id + ' (' + found.how + ')');
+            return found.id;
         }
 
         log('victim hero unknown, using generic lines');
@@ -375,19 +382,23 @@
     }
 
     function onKill(killPanel) {
+        // Master switch (smack_config.js, or the Esc menu panel for this match).
+        if (!setting('enabled', true)) {
+            log('mod switched off in settings, kill ignored');
+            return;
+        }
+
         const hero = getLocalHero();
         if (!hero || !hero.hasLines()) return;
 
-        const now = Date.now();
-
-        // Stamped on the accepted kill rather than on the completed send, so kills landing in the
-        // same instant as the first one are rejected here instead of stacking behind it.
-        if (State.lastAcceptedMs && now - State.lastAcceptedMs < CONFIG.COOLDOWN_MS) {
-            log('kill within ' + CONFIG.COOLDOWN_MS + 'ms cooldown, ignored');
+        if (isSomeoneElsesKill()) {
+            log('kill is not ours (spectating, or our hero is dead), ignored');
             return;
         }
-        // Redundant while the cooldown outlasts a send, but guarantees we never overwrite the
-        // text of a submit that is still in flight.
+
+        // No cooldown: every kill sends. The one exception is a kill landing while the previous
+        // line is still being typed into chat (a fraction of a second) -- it is dropped, because
+        // overwriting the in-flight text would garble or lose the first line.
         if (State.sending) {
             log('send in flight, kill ignored');
             return;
@@ -395,7 +406,6 @@
 
         State.message = hero.pick(getVictimHero(killPanel));
         if (!State.message) return;
-        State.lastAcceptedMs = now;
         log('kill detected, sending');
         beginSend();
     }

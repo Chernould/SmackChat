@@ -6,6 +6,7 @@
 	</styles>
 	<scripts>
 		<include src="s2r://panorama/scripts/hud_lookup.vjs_c" />
+		<include src="s2r://panorama/scripts/smack_config.vjs_c" />
 		<include src="s2r://panorama/scripts/smack_heroes.vjs_c" />
 		<include src="s2r://panorama/scripts/heroes/hero_artist.vjs_c" />
 		<include src="s2r://panorama/scripts/heroes/hero_astro.vjs_c" />
@@ -51,6 +52,8 @@
 		<include src="s2r://panorama/scripts/heroes/hero_werewolf.vjs_c" />
 		<include src="s2r://panorama/scripts/heroes/hero_wraith.vjs_c" />
 		<include src="s2r://panorama/scripts/heroes/hero_yamato.vjs_c" />
+		<include src="s2r://panorama/scripts/smack_storage.vjs_c" />
+		<include src="s2r://panorama/scripts/smack_settings.vjs_c" />
 		<include src="s2r://panorama/scripts/smack_chat.vjs_c" />
 	</scripts>
 	<snippets>

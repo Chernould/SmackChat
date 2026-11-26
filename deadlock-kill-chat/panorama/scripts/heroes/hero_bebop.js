@@ -31,7 +31,7 @@ $.SmackChatHeroes.register({
         "Next time, bring a better attitude. And aim.",
         "Yeah, I don't think yer gonna win this one.",
         "Well, ain't that a shame.",
-        "I was gonna give you a chance. I forgot'.",
+        "I was gonna give you a chance. I forgot.",
         "That's gonna leave a mark. Probably several.",
         "You call that a fight?",
         "I should start charg in' for lessons.",
@@ -94,6 +94,10 @@ $.SmackChatHeroes.register({
         "Oh dust it off, I barely touch'd yeh.",
         "Clankin' my rod.",
     ],
+    // Percent chance (0-100) of using a victim's vsHero lines instead of the generic ones,
+    // when that victim has some. `default` covers every victim; add e.g. `hero_lash: 70,`
+    // to override one. Kept as-is when the sheet is re-imported.
+    vsChance: { default: 100 },
     // Lines used instead of `lines` when the victim is that hero.
     // Leave an array empty to fall back to the generic `lines` above.
     vsHero: {
@@ -120,7 +124,7 @@ $.SmackChatHeroes.register({
             "Well that was satisfyin'",
             "Take a look at me now, Lash. Take a look at me!",
             "My uppercut isn't stupid Lash. Look at you now.",
-            "OOOH! I got to fight the amazing ~Lash. Well, yer dead now.",
+            "OOOH! I got to fight the \"amazing\" ~Lash. Well, yer dead now.",
             "Shut up Lash.",
             "I'm better than you, Lash, just deal with it!",
             "You see that? I killed Lash! I. Killed. Lash.",
