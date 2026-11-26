@@ -11,7 +11,7 @@ $CsdkRoot = (Resolve-Path -LiteralPath $CsdkRoot).Path
 $ResourceCompiler = (Resolve-Path -LiteralPath $ResourceCompiler).Path
 $Source2ViewerCli = (Resolve-Path -LiteralPath $Source2ViewerCli).Path
 
-$source = Join-Path $PSScriptRoot 'deadlock-kill-chat\panorama'
+$source = Join-Path $PSScriptRoot '..\deadlock-kill-chat\panorama'
 if (-not (Test-Path -LiteralPath (Join-Path $source 'layout\hud_damage_impact.xml') -PathType Leaf)) {
     throw 'Put build.ps1 at the repository root, next to deadlock-kill-chat.'
 }
@@ -20,7 +20,7 @@ if (-not (Test-Path -LiteralPath (Join-Path $source 'layout\hud_damage_impact.xm
 $addon = 'build_smackchat_' + [guid]::NewGuid().ToString('N')
 $content = Join-Path $CsdkRoot "content\citadel_addons\$addon"
 $game = Join-Path $CsdkRoot "game\citadel_addons\$addon"
-$dist = Join-Path $PSScriptRoot 'dist'
+$dist = Join-Path $PSScriptRoot '..\dist'
 $pending = Join-Path $dist "$addon.vpk"
 $output = Join-Path $dist 'SmackChat.vpk'
 
